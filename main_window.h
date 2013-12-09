@@ -2,7 +2,7 @@
 #include <QPushButton>
 #include <QThread>
 
-#include "sound_thread.h"
+#include "sound_thread_portaudio.h"
 
 class AutozenWindow : public QMainWindow {
 	Q_OBJECT

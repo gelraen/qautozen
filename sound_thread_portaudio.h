@@ -12,5 +12,5 @@ public slots:
 	void start();
 private:
 	void initOut();
-	void fillBuffer(CurrentState*, QIODevice*, int);
+	PaStream *stream_;
 };

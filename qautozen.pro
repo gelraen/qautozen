@@ -6,12 +6,10 @@ TEMPLATE = app
 TARGET = 
 DEPENDPATH += .
 INCLUDEPATH += .
-QT += mobility multimediakit
-CONFIG += debug mobility
-INCLUDEPATH += /usr/include/QtMobility
-INCLUDEPATH += /usr/include/QtMultimediaKit
-LIBS += -lQtMultimediaKit
+QT += multimedia
+CONFIG += debug
+LIBS += -lportaudio
 
 # Input
-HEADERS += main_window.h sound_thread.h
-SOURCES += main.cpp main_window.cpp sound_thread.cpp
+HEADERS += main_window.h sound_thread_portaudio.h
+SOURCES += main.cpp main_window.cpp sound_thread_portaudio.cpp

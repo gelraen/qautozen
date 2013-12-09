@@ -1,4 +1,4 @@
-#include "sound_thread.h"
+#include "sound_thread_portaudio.h"
 #include <QAtomicPointer>
 #include <QDebug>
 #include <vector>
@@ -13,9 +13,14 @@ const int kSampleRate = 8000;
 const int kMaxHarmonics = 10;
 const int kDefaultHarmonics = 3;
 const int kBeatMax = 40;
-const int kSampleSize = 8;
+typedef uint8_t sampleType;
+const int kSampleSize = sizeof(sampleType);
 const int kChannelCount = 2; // stereo
 const int kBufferLenMs = 125;
+
+struct CurrentState;
+
+QAtomicPointer<CurrentState> state;
 
 struct CurrentState {
 private:
@@ -30,7 +35,7 @@ public:
 	int volume_;
 
 public:
-	CurrentState(int sampleRate) : volume_(100), base_(300), beat_(25), sample_rate_(sampleRate) {
+	CurrentState(int sampleRate) : sample_rate_(sampleRate), base_(300), beat_(25), volume_(100) {
 		double increment = (2*M_PI) / sample_rate_;
 		double current = 0;
 
@@ -82,91 +87,51 @@ public:
 	}
 };
 
+int fillBuffer(const void *input, void *output, unsigned long frameCount, const PaStreamCallbackTimeInfo *timeinfo, PaStreamCallbackFlags statusFlags, void *userData) {
+	CurrentState *cur_state = (CurrentState*)state;
+	sampleType *out = (sampleType*)output;
+	for(unsigned long i = 0; i < frameCount; i++) {
+		cur_state->IncerementCurtimes();
+		out[0] = cur_state->GetLeft();
+		out[1] = cur_state->GetRight();
+		out += 2 * sizeof(sampleType);
+	}
+}
+
 SoundManager::SoundManager(QObject *parent) :
 	QObject(parent),
-	out_(NULL),
-	state_(new CurrentState(kSampleRate)),
-	out_device_(NULL) {
+	stream_(NULL) {
+	PaError err = Pa_Initialize();
+	if (err != paNoError) {
+		qDebug() << "Failed to initialize portaudio: " << Pa_GetErrorText(err);
+	}
 }
 
 SoundManager::~SoundManager() {
-	delete state_;
+	Pa_CloseStream(stream_);
+	Pa_Terminate();
 }
 
 void SoundManager::initOut() {
-	QAudioFormat format;
-	format.setChannelCount(kChannelCount);
-	format.setSampleRate(kSampleRate);
-	format.setSampleSize(kSampleSize);
-	format.setSampleType(QAudioFormat::SignedInt);
-	format.setCodec("audio/pcm");
-
-	QAudioDeviceInfo info(QAudioDeviceInfo::defaultOutputDevice());
-	if (!info.isFormatSupported(format)) {
-		qDebug() << "Desired audio format is not supported!";
+	PaStream *stream;
+	PaError err = Pa_OpenDefaultStream(&stream, 0, 2, paUInt8, kSampleRate, 0, fillBuffer, NULL);
+	if (err != paNoError) {
+		qDebug() << "Failed to open a stream: " << Pa_GetErrorText(err);
 		return;
 	}
-
-	out_ = new QAudioOutput(format, this);
-	out_->setBufferSize(kSampleRate * kBufferLenMs / 1000 * kSampleSize / 8 * kChannelCount);
-	out_->setNotifyInterval(kBufferLenMs / 2);
-
-	connect(out_, SIGNAL(stateChanged(QAudio::State)), SLOT(onOutStateChanged(QAudio::State)));
-	connect(out_, SIGNAL(notify()), SLOT(onOutNotify()));
+	CurrentState *old_state = state.fetchAndStoreOrdered(new CurrentState(kSampleRate));
+	if (old_state != NULL) { delete old_state; }
+	stream_ = stream;
 }
 
 void SoundManager::start() {
-	if (out_ == NULL) {
+	if (stream_ == NULL) {
 		initOut();
 	}
-	if (out_ == NULL) { return; }
-	if (out_device_ == NULL) {
-		out_device_ = out_->start();
+	if (stream_ == NULL) { return; }
+	PaError err = Pa_StartStream(stream_);
+	if (err != paNoError) {
+		qDebug() << "Failed to start stream: " << Pa_GetErrorText(err);
 	}
-	if (out_device_ == NULL) { return; }
-	//out_->resume();
-
-	//qDebug() << "State: " << out_->state() << ", Error: " << out_->error() << ", FreeBytes: " << out_->bytesFree();
-	fillBuffer(state_, out_device_, out_->bytesFree());
 	qDebug() << "start";
-	//qDebug() << "State: " << out_->state() << ", Error: " << out_->error() << ", FreeBytes: " << out_->bytesFree();
-	//out_->resume();
-	//qDebug() << "State: " << out_->state() << ", Error: " << out_->error() << ", FreeBytes: " << out_->bytesFree();
-}
-
-void SoundManager::onOutStateChanged(QAudio::State state) {
-	qDebug() << "State changed";
-	qDebug() << "State: " << out_->state() << ", Error: " << out_->error() << ", FreeBytes: " << out_->bytesFree();
-	if (out_ == NULL || out_device_ == NULL) { return; }
-	fillBuffer(state_, out_device_, out_->bytesFree());
-}
-
-void SoundManager::onOutNotify() {
-	qDebug() << "Notify";
-	qDebug() << "State: " << out_->state() << ", Error: " << out_->error() << ", FreeBytes: " << out_->bytesFree();
-	if (out_ == NULL || out_device_ == NULL) { return; }
-	fillBuffer(state_, out_device_, out_->bytesFree());
-}
-
-void SoundManager::fillBuffer(CurrentState *state, QIODevice *out, int freeBytes) {
-	int bytesWritten = 0, n;
-	for(int i = 0; i < freeBytes / (2 * kSampleSize / 8); i++) {
-		state->IncerementCurtimes();
-		uint8_t tmp = state->GetLeft();
-		n = out->write((char*)&tmp, sizeof(tmp));
-		qDebug() << "Write returned " << n;
-		if (n < 0) {
-			qDebug() << "Write failed: " << out->errorString();
-		} else {
-			bytesWritten += n;
-		}
-		tmp = state->GetRight();
-		n = out->write((char*)&tmp, sizeof(tmp));
-		if (n < 0) {
-			qDebug() << "Write failed: " << out->errorString();
-		} else {
-			bytesWritten += n;
-		}
-	}
-	qDebug() << "Written " << bytesWritten << " bytes";
 }
