@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <vector>
 #include <cmath>
+#include <stdint.h>
 
 using std::floor;
 using std::pow;
@@ -27,7 +28,7 @@ private:
 	vector<int> waveTable_;
 	int sample_rate_;
 	int harmonics_;
-	vector<double> harmonic_curtime_left_; 
+	vector<double> harmonic_curtime_left_;
 	vector<double> harmonic_curtime_right_;
 public:
 	double base_;
@@ -35,7 +36,7 @@ public:
 	int volume_;
 
 public:
-	CurrentState(int sampleRate) : sample_rate_(sampleRate), base_(300), beat_(25), volume_(100) {
+	CurrentState(int sampleRate) : sample_rate_(sampleRate), base_(300), beat_(20), volume_(100) {
 		double increment = (2*M_PI) / sample_rate_;
 		double current = 0;
 

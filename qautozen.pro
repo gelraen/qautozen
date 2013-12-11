@@ -6,7 +6,7 @@ TEMPLATE = app
 TARGET = 
 DEPENDPATH += .
 INCLUDEPATH += .
-QT += multimedia
+#QT += multimedia
 CONFIG += debug
 LIBS += -lportaudio
 
