@@ -136,3 +136,12 @@ void SoundManager::start() {
 	}
 	qDebug() << "start";
 }
+
+void SoundManager::stop() {
+	if (stream_ == NULL) { return; }
+	PaError err = Pa_StopStream(stream_);
+	if (err != paNoError) {
+		qDebug() << "Failed to stop stream: " << Pa_GetErrorText(err);
+	}
+	qDebug() << "stop";
+}

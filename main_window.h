@@ -11,6 +11,7 @@ public:
 	virtual ~AutozenWindow();
 private:
 	QPushButton *start_button_;
+	QPushButton *stop_button_;
 	QThread sound_thread_;
 	SoundManager *sound_manager_;
 };

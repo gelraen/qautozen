@@ -10,6 +10,7 @@ public:
 	virtual ~SoundManager();
 public slots:
 	void start();
+	void stop();
 private:
 	void initOut();
 	PaStream *stream_;
