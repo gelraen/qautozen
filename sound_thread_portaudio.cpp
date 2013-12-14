@@ -13,15 +13,6 @@ using std::vector;
 const int kSampleRate = 8000;
 const int kMaxHarmonics = 10;
 const int kDefaultHarmonics = 3;
-const int kBeatMin = 0;
-const int kBeatMax = 40;
-const int kBeatDefault = 20;
-const int kBaseMin = 50;
-const int kBaseMax = 1000;
-const int kBaseDefault = 300;
-const int kVolumeMin = 0;
-const int kVolumeMax = 100;
-const int kVolumeDefault = 50;
 typedef uint8_t sampleType;
 const int kSampleSize = sizeof(sampleType);
 const int kChannelCount = 2; // stereo
@@ -80,7 +71,7 @@ public:
 		}
 	}
 
-	uint8_t GetLeft() {
+	uint8_t GetLeft() const {
 		int sigma = 0;
 		for(int i = 0; i < harmonics_; i++) {
 			sigma += waveTable_[(int)floor(harmonic_curtime_left_[i])] >> i;
@@ -89,7 +80,7 @@ public:
 		return floor(volume_ * sigma / 100);
 	}
 
-	uint8_t GetRight() {
+	uint8_t GetRight() const {
 		int sigma = 0;
 		for(int i = 0; i < harmonics_; i++) {
 			sigma += waveTable_[(int)floor(harmonic_curtime_right_[i])] >> i;
@@ -119,10 +110,10 @@ void updateState(std::function<void (CurrentState*)> f) {
 		if (!state.testAndSetOrdered(cur_state, new_state)) {
 			delete new_state;
 			qDebug() << "updateState failed, retrying...";
-			// TODO: insert esponential backoff here if this ever becomes a problem
+			// TODO: insert exponential backoff here if this ever becomes a problem
 			continue;
 		}
-		delete cur_state;
+		delete cur_state; // this leads to segfaults, because portaudio thread might be still using it.
 		return;
 	}
 }
@@ -134,6 +125,7 @@ SoundManager::SoundManager(QObject *parent) :
 	if (err != paNoError) {
 		qDebug() << "Failed to initialize portaudio: " << Pa_GetErrorText(err);
 	}
+	initOut();
 }
 
 SoundManager::~SoundManager() {
