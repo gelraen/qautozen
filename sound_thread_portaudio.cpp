@@ -25,7 +25,6 @@ const int kVolumeDefault = 50;
 typedef uint8_t sampleType;
 const int kSampleSize = sizeof(sampleType);
 const int kChannelCount = 2; // stereo
-const int kBufferLenMs = 125;
 
 struct CurrentState;
 
