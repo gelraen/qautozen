@@ -96,14 +96,12 @@ QLayout* AutozenWindow::createButtonsLayout() {
 
 AutozenWindow::AutozenWindow() : QMainWindow(NULL) {
   sound_manager_ = new SoundManager(NULL);
-  sound_manager_->moveToThread(&sound_thread_);
 
   QWidget* w = new QWidget();
   w->setLayout(createMainLayout());
   setCentralWidget(w);
   connect(start_button_, SIGNAL(clicked(bool)), sound_manager_, SLOT(start()));
   connect(stop_button_, SIGNAL(clicked(bool)), sound_manager_, SLOT(stop()));
-  sound_thread_.start();
 }
 
 AutozenWindow::~AutozenWindow() {}
