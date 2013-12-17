@@ -11,13 +11,32 @@ using std::sin;
 using std::vector;
 
 const int kSampleRate = 8000;
-const int kMaxHarmonics = 10;
-const int kDefaultHarmonics = 3;
 typedef uint8_t sampleType;
 const int kSampleSize = sizeof(sampleType);
 const int kChannelCount = 2; // stereo
 
+int waveTable[kSampleRate] = {0};
+
+void initWaveTable() {
+	double increment = (2*M_PI) / kSampleRate;
+	double current = 0;
+	for(int i = 0; i < kSampleRate; i++, current += increment) {
+		waveTable[i] = floor(sin(current) * 127);
+	}
+}
+
 struct CurrentState;
+
+struct SoundThreadData {
+	SoundThreadData() {
+		for (int i = 0; i < kHarmonicsMax; i++) {
+			harmonics_curtime_left_[i] = 0;
+			harmonics_curtime_right_[i] = 0;
+		}
+	}
+	double harmonics_curtime_left_[kHarmonicsMax];
+	double harmonics_curtime_right_[kHarmonicsMax];	
+};
 
 QAtomicPointer<CurrentState> state;
 
@@ -26,77 +45,56 @@ int adjustToRange(int v, int min, int max) {
 }
 
 struct CurrentState {
-private:
-	vector<int> waveTable_;
-	int sample_rate_;
-	int harmonics_;
-	vector<double> harmonic_curtime_left_;
-	vector<double> harmonic_curtime_right_;
-public:
 	double base_;
 	double beat_;
+	int harmonics_;
 	int volume_;
 
 public:
-	CurrentState(int sampleRate) : sample_rate_(sampleRate), base_(kBaseDefault), beat_(kBeatDefault), volume_(kVolumeDefault) {
-		double increment = (2*M_PI) / sample_rate_;
-		double current = 0;
+	CurrentState() : base_(kBaseDefault),
+		beat_(kBeatDefault),
+		harmonics_(kHarmonicsDefault),
+		volume_(kVolumeDefault) {}
 
-		waveTable_ = vector<int>(sample_rate_);
-		for(int i = 0; i < sample_rate_; i++, current += increment) {
-			waveTable_[i] = floor( sin(current) * 127);
-		}
-
-		SetHarmonics(kDefaultHarmonics);
-	}
-
-	void SetHarmonics(int n) {
-		harmonic_curtime_left_ = vector<double>(n);
-		harmonic_curtime_right_ = vector<double>(n);
-		harmonics_ = n;
-	}
-
-	void SetVolume(int v) {
-		volume_ = v;
-	}
-
-	void IncerementCurtimes() {
-		for(int i = 0; i < harmonics_; i++) {
-			harmonic_curtime_left_[i] =
-				fmod(harmonic_curtime_left_[i] + base_ * pow(2, i), sample_rate_);
+	void IncrementCurtimes(SoundThreadData* d) const {
+		for(int i = 0; i < kHarmonicsMax; i++) {
+			d->harmonics_curtime_left_[i] =
+				fmod(d->harmonics_curtime_left_[i] + base_ * pow(2, i), kSampleRate);
 		}
 		for(int i = 0; i < harmonics_; i++) {
-			harmonic_curtime_right_[i] =
-				fmod(harmonic_curtime_right_[i] + base_ * pow(2, i) + beat_, sample_rate_);
+			d->harmonics_curtime_right_[i] =
+				fmod(d->harmonics_curtime_right_[i] + base_ * pow(2, i) + beat_, kSampleRate);
 		}
 	}
 
-	uint8_t GetLeft() const {
+	uint8_t GetLeft(const SoundThreadData& d) const {
 		int sigma = 0;
 		for(int i = 0; i < harmonics_; i++) {
-			sigma += waveTable_[(int)floor(harmonic_curtime_left_[i])] >> i;
+			sigma += waveTable[(int)floor(d.harmonics_curtime_left_[i])] >> i;
 		}
 		sigma = sigma / 2 + 128;
-		return floor(volume_ * sigma / 100);
+		return floor(volume_ * sigma / kVolumeMax);
 	}
 
-	uint8_t GetRight() const {
+	uint8_t GetRight(const SoundThreadData& d) const {
 		int sigma = 0;
 		for(int i = 0; i < harmonics_; i++) {
-			sigma += waveTable_[(int)floor(harmonic_curtime_right_[i])] >> i;
+			sigma += waveTable[(int)floor(d.harmonics_curtime_right_[i])] >> i;
 		}
 		sigma = sigma / 2 + 128;
-		return floor(volume_ * sigma / 100);
+		return floor(volume_ * sigma / kVolumeMax);
 	}
 };
 
-int fillBuffer(const void* /* input */, void* output, unsigned long frameCount, const PaStreamCallbackTimeInfo* /* timeinfo */, PaStreamCallbackFlags /* statusFlags */, void* /* userData */) {
-	CurrentState *cur_state = (CurrentState*)state;
-	sampleType *out = (sampleType*)output;
+int fillBuffer(const void* /* input */, void* output, unsigned long frameCount, const PaStreamCallbackTimeInfo* /* timeinfo */, PaStreamCallbackFlags /* statusFlags */, void* userData) {
+	SoundThreadData* data = (SoundThreadData*)userData;
+	// race condition here: *state might be deleted between fetching pointer and making a copy.
+	CurrentState cur_state = *(CurrentState*)state;
+	sampleType* out = (sampleType*)output;
 	for(unsigned long i = 0; i < frameCount; i++) {
-		cur_state->IncerementCurtimes();
-		out[0] = cur_state->GetLeft();
-		out[1] = cur_state->GetRight();
+		cur_state.IncrementCurtimes(data);
+		out[0] = cur_state.GetLeft(*data);
+		out[1] = cur_state.GetRight(*data);
 		out += 2 * sizeof(sampleType);
 	}
 	return paContinue;
@@ -113,7 +111,7 @@ void updateState(std::function<void (CurrentState*)> f) {
 			// TODO: insert exponential backoff here if this ever becomes a problem
 			continue;
 		}
-		delete cur_state; // this leads to segfaults, because portaudio thread might be still using it.
+		delete cur_state; // this deletion races with copying in fillBuffer().
 		return;
 	}
 }
@@ -125,6 +123,7 @@ SoundManager::SoundManager(QObject *parent) :
 	if (err != paNoError) {
 		qDebug() << "Failed to initialize portaudio: " << Pa_GetErrorText(err);
 	}
+	initWaveTable();
 	initOut();
 }
 
@@ -135,20 +134,17 @@ SoundManager::~SoundManager() {
 
 void SoundManager::initOut() {
 	PaStream *stream;
-	PaError err = Pa_OpenDefaultStream(&stream, 0, 2, paUInt8, kSampleRate, 0, fillBuffer, NULL);
+	PaError err = Pa_OpenDefaultStream(&stream, 0, 2, paUInt8, kSampleRate, 0, fillBuffer, new SoundThreadData());
 	if (err != paNoError) {
 		qDebug() << "Failed to open a stream: " << Pa_GetErrorText(err);
 		return;
 	}
-	CurrentState *old_state = state.fetchAndStoreOrdered(new CurrentState(kSampleRate));
+	CurrentState *old_state = state.fetchAndStoreOrdered(new CurrentState());
 	if (old_state != NULL) { delete old_state; }
 	stream_ = stream;
 }
 
 void SoundManager::start() {
-	if (stream_ == NULL) {
-		initOut();
-	}
 	if (stream_ == NULL) { return; }
 	PaError err = Pa_StartStream(stream_);
 	if (err != paNoError) {

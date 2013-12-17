@@ -5,12 +5,15 @@
 
 struct CurrentState;
 
-const int kBeatMin = 0;
-const int kBeatMax = 40;
-const int kBeatDefault = 20;
 const int kBaseMin = 50;
 const int kBaseMax = 1000;
 const int kBaseDefault = 300;
+const int kBeatMin = 0;
+const int kBeatMax = 40;
+const int kBeatDefault = 20;
+const int kHarmonicsMin = 1;
+const int kHarmonicsMax = 10;
+const int kHarmonicsDefault = 3;
 const int kVolumeMin = 0;
 const int kVolumeMax = 100;
 const int kVolumeDefault = 50;
