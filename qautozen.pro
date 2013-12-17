@@ -9,7 +9,7 @@ INCLUDEPATH += .
 #QT += multimedia
 CONFIG += debug
 LIBS += -lportaudio
-QMAKE_CXXFLAGS += -std=c++11
+QMAKE_CXXFLAGS += -std=c++0x
 
 # Input
 HEADERS += main_window.h sound_thread_portaudio.h
