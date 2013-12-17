@@ -34,9 +34,9 @@ QLayout* AutozenWindow::createBeatSlider() {
   QLabel* t = new QLabel(tr("Beat"));
   l->addWidget(t);
 
-  connect(beat_slider_, SIGNAL(sliderMoved(int)), beat_label,
+  connect(beat_slider_, SIGNAL(valueChanged(int)), beat_label,
           SLOT(setNum(int)));
-  connect(beat_slider_, SIGNAL(sliderMoved(int)), sound_manager_,
+  connect(beat_slider_, SIGNAL(valueChanged(int)), sound_manager_,
           SLOT(setBeat(int)));
   return l;
 }
@@ -56,9 +56,9 @@ QLayout* AutozenWindow::createBaseSlider() {
   QLabel* t = new QLabel(tr("Base"));
   l->addWidget(t);
 
-  connect(base_slider_, SIGNAL(sliderMoved(int)), base_label,
+  connect(base_slider_, SIGNAL(valueChanged(int)), base_label,
           SLOT(setNum(int)));
-  connect(base_slider_, SIGNAL(sliderMoved(int)), sound_manager_,
+  connect(base_slider_, SIGNAL(valueChanged(int)), sound_manager_,
           SLOT(setBase(int)));
   return l;
 }
@@ -78,9 +78,9 @@ QLayout* AutozenWindow::createVolumeSlider() {
   QLabel* t = new QLabel(tr("Volume"));
   l->addWidget(t);
 
-  connect(volume_slider_, SIGNAL(sliderMoved(int)), volume_label,
+  connect(volume_slider_, SIGNAL(valueChanged(int)), volume_label,
           SLOT(setNum(int)));
-  connect(volume_slider_, SIGNAL(sliderMoved(int)), sound_manager_,
+  connect(volume_slider_, SIGNAL(valueChanged(int)), sound_manager_,
           SLOT(setVolume(int)));
   return l;
 }
