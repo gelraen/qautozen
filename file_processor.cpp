@@ -14,7 +14,7 @@ struct CommandState {
 };
 
 FileProcessor::FileProcessor() : sound_manager_(NULL),
-    file_(NULL), d_(new CommandState()) {}
+    file_(NULL), d_(new CommandState()), paused_(false) {}
 
 FileProcessor::~FileProcessor() {}
 
@@ -33,6 +33,9 @@ void FileProcessor::playFile(QString filename) {
 
   emit sequenceStarted();
   QTimer::singleShot(0, this, SLOT(readNextCommand()));
+  if (sound_manager_ != NULL) {
+    sound_manager_->start();
+  }
 }
 
 void FileProcessor::stopSequence() {
@@ -84,7 +87,7 @@ void FileProcessor::readNextCommand() {
 
 void FileProcessor::commandBase(const QStringList& cmd) {
   bool ok;
-  int v = cmd.at(1).toInt(&ok);
+  int v = cmd.at(1).toFloat(&ok);
   if (!ok) {
     qDebug() << "Invalid BASE command: " << cmd;
     stopSequence();
@@ -98,7 +101,7 @@ void FileProcessor::commandBase(const QStringList& cmd) {
 
 void FileProcessor::commandVolume(const QStringList& cmd) {
   bool ok;
-  int v = cmd.at(1).toInt(&ok);
+  int v = cmd.at(1).toFloat(&ok);
   if (!ok) {
     qDebug() << "Invalid VOLUME command: " << cmd;
     stopSequence();
@@ -112,7 +115,7 @@ void FileProcessor::commandVolume(const QStringList& cmd) {
 
 void FileProcessor::commandSet(const QStringList& cmd) {
   bool ok;
-  int v = cmd.at(1).toInt(&ok);
+  int v = cmd.at(1).toFloat(&ok);
   if (!ok) {
     qDebug() << "Invalid SET command: " << cmd;
     stopSequence();
@@ -153,14 +156,19 @@ void FileProcessor::commandPause(const QStringList& /* cmd */) {
   if (sound_manager_ != NULL) {
     sound_manager_->stop();
   }
+  paused_ = true;
   emit sequencePaused();
 }
 
 void FileProcessor::continueSequence() {
-  if (sound_manager_ != NULL) {
-    sound_manager_->start();
+  if (paused_) {
+    if (sound_manager_ != NULL) {
+      sound_manager_->start();
+    }
+    QTimer::singleShot(0, this, SLOT(readNextCommand()));
+    paused_ = false;
+    emit sequenceResumed();
   }
-  QTimer::singleShot(0, this, SLOT(readNextCommand()));
 }
 
 void FileProcessor::commandEnd(const QStringList& /* cmd */) {
@@ -174,7 +182,7 @@ void FileProcessor::commandExit(const QStringList& /* cmd */) {
 void FileProcessor::commandFade(const QStringList& cmd) {
   int cur = -1;
   bool ok1, ok2;
-  int target = cmd.at(1).toInt(&ok1);
+  int target = cmd.at(1).toFloat(&ok1);
   int interval = cmd.at(2).toInt(&ok2);
   if (!ok1 || !ok2) {
     qDebug() << "Invalid FADE command: " << cmd;
@@ -188,13 +196,14 @@ void FileProcessor::commandFade(const QStringList& cmd) {
     d_->update_interval = interval * 1000 / abs(target - cur);
     d_->update_type = VOLUME;
     QTimer::singleShot(d_->update_interval, this, SLOT(doAdjustment()));
+    qDebug() << d_->updates_left << d_->update_interval << d_->update_magnitude;
   }
 }
 
 void FileProcessor::commandSlide(const QStringList& cmd) {
   int cur = -1;
   bool ok1, ok2;
-  int target = cmd.at(1).toInt(&ok1);
+  int target = cmd.at(1).toFloat(&ok1);
   int interval = cmd.at(2).toInt(&ok2);
   if (!ok1 || !ok2) {
     qDebug() << "Invalid SLIDE command: " << cmd;
@@ -206,12 +215,14 @@ void FileProcessor::commandSlide(const QStringList& cmd) {
     d_->update_magnitude = target > cur ? 1 : -1;
     d_->updates_left = abs(target - cur);
     d_->update_interval = interval * 1000 / abs(target - cur);
-    d_->update_type = VOLUME;
+    d_->update_type = BEAT;
     QTimer::singleShot(d_->update_interval, this, SLOT(doAdjustment()));
+    qDebug() << d_->updates_left << d_->update_interval << d_->update_magnitude;
   }
 }
 
 void FileProcessor::doAdjustment() {
+    qDebug() << d_->updates_left << d_->update_interval << d_->update_magnitude;
   if (d_->updates_left > 0) {
     d_->updates_left--;
     if (sound_manager_ != NULL) {
@@ -224,6 +235,8 @@ void FileProcessor::doAdjustment() {
         break;
       }
     }
+  }
+  if (d_->updates_left > 0) {
     QTimer::singleShot(d_->update_interval, this, SLOT(doAdjustment()));
   } else {
     QTimer::singleShot(0, this, SLOT(readNextCommand()));

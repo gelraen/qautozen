@@ -1,4 +1,7 @@
 #include "main_window.h"
+
+#include <QFileDialog>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <Qt>
@@ -86,22 +89,39 @@ QLayout* AutozenWindow::createVolumeSlider() {
 }
 
 QLayout* AutozenWindow::createButtonsLayout() {
-  QHBoxLayout* l = new QHBoxLayout();
+  QGridLayout* l = new QGridLayout();
   start_button_ = new QPushButton(tr("Start"), this);
   stop_button_ = new QPushButton(tr("Stop"), this);
-  l->addWidget(start_button_);
-  l->addWidget(stop_button_);
+  open_sequence_ = new QPushButton(tr("Open file"), this);
+  resume_sequence_ = new QPushButton(tr("Resume sequence"), this);
+  resume_sequence_->setEnabled(false);
+  l->addWidget(start_button_, 0, 0);
+  l->addWidget(stop_button_, 0, 1);
+  l->addWidget(open_sequence_, 1, 0);
+  l->addWidget(resume_sequence_, 1, 1);
+
+  connect(open_sequence_, SIGNAL(clicked()), this, SLOT(openFile()));
   return l;
 }
 
 AutozenWindow::AutozenWindow() : QMainWindow(NULL) {
   sound_manager_ = new SoundManager(NULL);
 
+  file_processor_.setSoundManager(sound_manager_);
+
   QWidget* w = new QWidget();
   w->setLayout(createMainLayout());
   setCentralWidget(w);
   connect(start_button_, SIGNAL(clicked(bool)), sound_manager_, SLOT(start()));
   connect(stop_button_, SIGNAL(clicked(bool)), sound_manager_, SLOT(stop()));
+  connect(sound_manager_, SIGNAL(beatChanged(int)), this, SLOT(beatChanged(int)));
+  connect(sound_manager_, SIGNAL(baseChanged(int)), this, SLOT(baseChanged(int)));
+  connect(sound_manager_, SIGNAL(volumeChanged(int)), this, SLOT(volumeChanged(int)));
+  connect(&file_processor_, SIGNAL(sequenceStarted()), this, SLOT(sequenceStarted()));
+  connect(&file_processor_, SIGNAL(sequenceStopped()), this, SLOT(sequenceStopped()));
+  connect(&file_processor_, SIGNAL(sequencePaused()), this, SLOT(sequencePaused()));
+  connect(&file_processor_, SIGNAL(sequenceResumed()), this, SLOT(sequenceResumed()));
+  connect(resume_sequence_, SIGNAL(clicked()), &file_processor_, SLOT(continueSequence()));
 }
 
 AutozenWindow::~AutozenWindow() {}
@@ -123,3 +143,38 @@ void AutozenWindow::volumeChanged(int v) {
     volume_slider_->setValue(v);
   }
 }
+
+void AutozenWindow::sequenceStarted() {
+  beat_slider_->setEnabled(false);
+  base_slider_->setEnabled(false);
+  volume_slider_->setEnabled(false);
+  open_sequence_->setEnabled(false);
+  start_button_->setEnabled(false);
+  stop_button_->setEnabled(false);
+}
+
+void AutozenWindow::sequenceStopped() {
+  beat_slider_->setEnabled(true);
+  base_slider_->setEnabled(true);
+  volume_slider_->setEnabled(true);
+  open_sequence_->setEnabled(true);
+  start_button_->setEnabled(true);
+  stop_button_->setEnabled(true);
+}
+
+void AutozenWindow::sequencePaused() {
+  resume_sequence_->setEnabled(true);
+}
+
+void AutozenWindow::sequenceResumed() {
+  resume_sequence_->setEnabled(false);
+}
+
+void AutozenWindow::openFile() {
+  QString filename = QFileDialog::getOpenFileName(this,
+    tr("Open sequence file"), QString(), tr("Sequence files (*.seq);;All files (*.*)"));
+  if (!filename.isNull()) {
+    file_processor_.playFile(filename);
+  }
+}
+

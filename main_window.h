@@ -16,6 +16,11 @@ class AutozenWindow : public QMainWindow {
   void beatChanged(int);
   void baseChanged(int);
   void volumeChanged(int);
+  void sequenceStarted();
+  void sequenceStopped();
+  void sequencePaused();
+  void sequenceResumed();
+  void openFile();
 
  private:
   QLayout* createMainLayout();
@@ -28,6 +33,8 @@ class AutozenWindow : public QMainWindow {
  private:
   QPushButton* start_button_;
   QPushButton* stop_button_;
+  QPushButton* open_sequence_;
+  QPushButton* resume_sequence_;
   SoundManager* sound_manager_;
   QSlider* beat_slider_;
   QSlider* base_slider_;

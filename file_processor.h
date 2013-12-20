@@ -22,6 +22,7 @@ class FileProcessor : public QObject {
   void sequenceStarted();
   void sequenceStopped();
   void sequencePaused();
+  void sequenceResumed();
  private slots:
   void readNextCommand();
   void doAdjustment();
@@ -41,4 +42,5 @@ class FileProcessor : public QObject {
   SoundManager* sound_manager_;
   QFile* file_;
   CommandState* d_;
+  bool paused_;
 };
