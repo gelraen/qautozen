@@ -4,6 +4,7 @@
 #include <QPushButton>
 #include <QSlider>
 
+#include "file_processor.h"
 #include "sound_thread_portaudio.h"
 
 class AutozenWindow : public QMainWindow {
@@ -31,4 +32,5 @@ class AutozenWindow : public QMainWindow {
   QSlider* beat_slider_;
   QSlider* base_slider_;
   QSlider* volume_slider_;
+  FileProcessor file_processor_;
 };

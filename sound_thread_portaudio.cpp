@@ -190,8 +190,16 @@ void SoundManager::setVolume(int v) {
   emit volumeChanged(v);
 }
 
+void SoundManager::setHarmonics(int v) {
+  v = adjustToRange(v, kHarmonicsMin, kHarmonicsMax);
+  updateState([v](CurrentState* s) { s->harmonics_ = v; });
+  emit harmonicsChanged(v);
+}
+
 int SoundManager::getBeat() { return state->beat_; }
 
 int SoundManager::getBase() { return state->base_; }
 
 int SoundManager::getVolume() { return state->volume_; }
+
+int SoundManager::getHarmonics() { return state->harmonics_; }

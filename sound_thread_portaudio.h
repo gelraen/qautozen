@@ -29,15 +29,18 @@ class SoundManager : public QObject {
   void setBeat(int);
   void setBase(int);
   void setVolume(int);
+  void setHarmonics(int);
 signals:
   void beatChanged(int);
   void baseChanged(int);
   void volumeChanged(int);
+  void harmonicsChanged(int);
 
  public:
   int getBeat();
   int getBase();
   int getVolume();
+  int getHarmonics();
 
  private:
   void initOut();

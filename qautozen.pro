@@ -12,5 +12,5 @@ LIBS += -lportaudio
 QMAKE_CXXFLAGS += -std=c++0x
 
 # Input
-HEADERS += main_window.h sound_thread_portaudio.h
-SOURCES += main.cpp main_window.cpp sound_thread_portaudio.cpp
+HEADERS += main_window.h sound_thread_portaudio.h file_processor.h
+SOURCES += main.cpp main_window.cpp sound_thread_portaudio.cpp file_processor.cpp
