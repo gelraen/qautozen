@@ -1,6 +1,9 @@
 #include "sound_thread_portaudio.h"
 #include <QAtomicPointer>
 #include <QDebug>
+#include <QReadWriteLock>
+#include <QReadLocker>
+#include <QWriteLocker>
 #include <vector>
 #include <cmath>
 #include <stdint.h>
@@ -38,7 +41,8 @@ struct SoundThreadData {
   double harmonics_curtime_right_[kHarmonicsMax];
 };
 
-QAtomicPointer<CurrentState> state;
+CurrentState *state = NULL;
+QReadWriteLock stateMtx;
 
 int adjustToRange(int v, int min, int max) {
   return v < min ? min : (v > max ? max : v);
@@ -92,33 +96,20 @@ int fillBuffer(const void* /* input */, void* output, unsigned long frameCount,
                const PaStreamCallbackTimeInfo* /* timeinfo */,
                PaStreamCallbackFlags /* statusFlags */, void* userData) {
   SoundThreadData* data = (SoundThreadData*)userData;
-  // race condition here: *state might be deleted between fetching pointer and
-  // making a copy.
-  CurrentState cur_state = *(CurrentState*)state;
+  QReadLocker locker(&stateMtx);
   sampleType* out = (sampleType*)output;
   for (unsigned long i = 0; i < frameCount; i++) {
-    cur_state.IncrementCurtimes(data);
-    out[0] = cur_state.GetLeft(*data);
-    out[1] = cur_state.GetRight(*data);
+    state->IncrementCurtimes(data);
+    out[0] = state->GetLeft(*data);
+    out[1] = state->GetRight(*data);
     out += 2 * sizeof(sampleType);
   }
   return paContinue;
 }
 
 void updateState(std::function<void(CurrentState*)> f) {
-  for (;;) {
-    CurrentState* cur_state = (CurrentState*)state;
-    CurrentState* new_state = new CurrentState(*cur_state);
-    f(new_state);
-    if (!state.testAndSetOrdered(cur_state, new_state)) {
-      delete new_state;
-      qDebug() << "updateState failed, retrying...";
-      // TODO: insert exponential backoff here if this ever becomes a problem
-      continue;
-    }
-    delete cur_state;  // this deletion races with copying in fillBuffer().
-    return;
-  }
+  QWriteLocker locker(&stateMtx);
+  f(state);
 }
 
 SoundManager::SoundManager(QObject* parent) : QObject(parent), stream_(NULL) {
@@ -143,10 +134,11 @@ void SoundManager::initOut() {
     qDebug() << "Failed to open a stream: " << Pa_GetErrorText(err);
     return;
   }
-  CurrentState* old_state = state.fetchAndStoreOrdered(new CurrentState());
-  if (old_state != NULL) {
-    delete old_state;
+  QWriteLocker locker(&stateMtx);
+  if (state != NULL) {
+    delete state;
   }
+  state = new CurrentState();
   stream_ = stream;
 }
 
@@ -196,10 +188,22 @@ void SoundManager::setHarmonics(int v) {
   emit harmonicsChanged(v);
 }
 
-int SoundManager::getBeat() { return state->beat_; }
+int SoundManager::getBeat() {
+  QReadLocker locker(&stateMtx);
+  return state->beat_;
+}
 
-int SoundManager::getBase() { return state->base_; }
+int SoundManager::getBase() {
+  QReadLocker locker(&stateMtx);
+  return state->base_;
+}
 
-int SoundManager::getVolume() { return state->volume_; }
+int SoundManager::getVolume() {
+  QReadLocker locker(&stateMtx);
+  return state->volume_;
+}
 
-int SoundManager::getHarmonics() { return state->harmonics_; }
+int SoundManager::getHarmonics() {
+  QReadLocker locker(&stateMtx);
+  return state->harmonics_;
+}
