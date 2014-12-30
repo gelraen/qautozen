@@ -16,9 +16,13 @@ QLayout* AutozenWindow::createMainLayout() {
 
 QLayout* AutozenWindow::createSlidersLayout() {
   QHBoxLayout* l = new QHBoxLayout();
+  l->addStretch();
   l->addLayout(createBeatSlider());
+  l->addStretch();
   l->addLayout(createBaseSlider());
+  l->addStretch();
   l->addLayout(createVolumeSlider());
+  l->addStretch();
   return l;
 }
 
