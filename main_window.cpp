@@ -109,6 +109,7 @@ AutozenWindow::AutozenWindow() : QMainWindow(NULL) {
 
   file_processor_.setSoundManager(sound_manager_);
 
+  setWindowFlags(windowFlags() | Qt::WindowFullscreenButtonHint);
   QWidget* w = new QWidget();
   w->setLayout(createMainLayout());
   setCentralWidget(w);
