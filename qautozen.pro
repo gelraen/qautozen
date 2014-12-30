@@ -3,13 +3,14 @@
 ######################################################################
 
 TEMPLATE = app
-TARGET = 
+TARGET = qautozen
 DEPENDPATH += .
 INCLUDEPATH += .
 #QT += multimedia
+QT += widgets
 CONFIG += debug
 LIBS += -lportaudio
-QMAKE_CXXFLAGS += -std=c++0x
+QMAKE_CXXFLAGS += -std=c++11 -stdlib=libc++
 
 # Input
 HEADERS += main_window.h sound_thread_portaudio.h file_processor.h

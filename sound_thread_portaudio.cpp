@@ -6,6 +6,7 @@
 #include <QWriteLocker>
 #include <vector>
 #include <cmath>
+#include <functional>
 #include <stdint.h>
 
 using std::floor;
@@ -64,11 +65,11 @@ struct CurrentState {
   void IncrementCurtimes(SoundThreadData* d) const {
     for (int i = 0; i < kHarmonicsMax; i++) {
       d->harmonics_curtime_left_[i] =
-          fmod(d->harmonics_curtime_left_[i] + base_ * pow(2, i), kSampleRate);
+          fmod(d->harmonics_curtime_left_[i] + base_ * pow(double(2), double(i)), kSampleRate);
     }
     for (int i = 0; i < harmonics_; i++) {
       d->harmonics_curtime_right_[i] =
-          fmod(d->harmonics_curtime_right_[i] + base_ * pow(2, i) + beat_,
+          fmod(d->harmonics_curtime_right_[i] + base_ * pow(double(2), double(i)) + beat_,
                kSampleRate);
     }
   }
