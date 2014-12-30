@@ -36,6 +36,7 @@ QLayout* AutozenWindow::createBeatSlider() {
   beat_slider_->setMinimum(kBeatMin);
   beat_slider_->setMaximum(kBeatMax);
   beat_slider_->setValue(kBeatDefault);
+  beat_slider_->setFocusPolicy(Qt::StrongFocus);
   l->addWidget(beat_slider_);
 
   QLabel* t = new QLabel(tr("Beat"));
@@ -58,6 +59,7 @@ QLayout* AutozenWindow::createBaseSlider() {
   base_slider_->setMinimum(kBaseMin);
   base_slider_->setMaximum(kBaseMax);
   base_slider_->setValue(kBaseDefault);
+  base_slider_->setFocusPolicy(Qt::StrongFocus);
   l->addWidget(base_slider_);
 
   QLabel* t = new QLabel(tr("Base"));
@@ -80,6 +82,7 @@ QLayout* AutozenWindow::createVolumeSlider() {
   volume_slider_->setMinimum(kVolumeMin);
   volume_slider_->setMaximum(kVolumeMax);
   volume_slider_->setValue(kVolumeDefault);
+  volume_slider_->setFocusPolicy(Qt::StrongFocus);
   l->addWidget(volume_slider_);
 
   QLabel* t = new QLabel(tr("Volume"));
